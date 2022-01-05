@@ -60,6 +60,8 @@ public class RemindersService {
         Reminders reminderToUpdate = remindersRepository.findById(id)
                 .orElseThrow(() -> new ReminderNotFoundException
                         ("Reminder with id: '" + id + "' was not found. Any reminder has changed its status."));
+
+        // == change reminder status if is opposite ==
         if (isDone) {
             if (reminderToUpdate.isDone()) {
                 throw new ReminderStatusException("The reminder has already status: 'done'");
@@ -82,19 +84,38 @@ public class RemindersService {
                 .orElseThrow(() -> new ReminderNotFoundException
                         ("Reminder with id: '" + id + "' was not found. Any reminder has changed its status."));
 
+        // == check if new deadline is in the future ==
         if (reminderUpdateData.getDaysLeft() < 0) {
             throw new ReminderDeadlineInPast
                     ("New deadline: " + reminderUpdateData.getDeadline() + " is in the past. Cannot set deadline");
         }
 
-        if (reminderToUpdate.getTask().equals(reminderUpdateData.getTask())
-                && reminderToUpdate.getDetails().equals(reminderUpdateData.getDetails())
-                && reminderToUpdate.getDeadline().equals(reminderUpdateData.getDeadline())) {
-            throw new ReminderHasNotChanged("Any reminder data has changed.");
+        boolean isUpdateNameChanged = reminderToUpdate.getTask().equals(reminderUpdateData.getTask());
+
+        // == check if anything was changed when name is still the same ==
+        if (isUpdateNameChanged){
+
+            if (reminderToUpdate.getDetails().equals(reminderUpdateData.getDetails())
+                    && reminderToUpdate.getDeadline().equals(reminderUpdateData.getDeadline())){
+                throw new ReminderHasNotChanged("Any reminder data has changed.");
+            }
+            reminderToUpdate.setDetails(reminderUpdateData.getDetails());
+            reminderToUpdate.setDeadline(reminderUpdateData.getDeadline());
+        }
+
+        // == check if changed name is present in a repository already==
+        if (!isUpdateNameChanged){
+            Optional<Reminders> remindersOptional = remindersRepository.findReminderByTask(reminderUpdateData.getTask());
+            if (remindersOptional.isPresent()) {
+                throw new ReminderAlreadyExistsException
+                        ("Can't change name to: '" + reminderUpdateData.getTask()
+                                + "' - it already exists. Same names are not allowed.");
+            }
         }
 
         reminderToUpdate.setTask(reminderUpdateData.getTask());
         reminderToUpdate.setDetails(reminderUpdateData.getDetails());
         reminderToUpdate.setDeadline(reminderUpdateData.getDeadline());
+
     }
 }

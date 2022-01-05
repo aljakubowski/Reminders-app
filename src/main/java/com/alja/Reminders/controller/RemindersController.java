@@ -4,107 +4,121 @@ import com.alja.Reminders.exceptionHandlers.*;
 import com.alja.Reminders.reminders.Reminders;
 import com.alja.Reminders.service.RemindersService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+
 @RestController
 @RequestMapping(path = "api/v1/reminders")
 public class RemindersController {
 
     private final RemindersService remindersService;
+    private final ReminderErrorResponse reminderErrorResponse;
 
     @Autowired
-    public RemindersController(RemindersService remindersService) {
+    public RemindersController(RemindersService remindersService, ReminderErrorResponse reminderErrorResponse) {
         this.remindersService = remindersService;
+        this.reminderErrorResponse = reminderErrorResponse;
     }
 
     // == endpoint that shows list of all reminders in repository ==
     @GetMapping
-    public List<Reminders> getReminders() {
-        return remindersService.getReminders();
+    public CollectionModel<Reminders> getReminders() {
+
+        List<Reminders> remindersList = remindersService.getReminders();
+
+        Link remindersLink = linkTo(RemindersController.class).withSelfRel();
+
+        remindersList.forEach(reminders -> reminders
+                .add(linkTo(RemindersController.class).slash(reminders.getId()).withSelfRel()));
+
+        return CollectionModel.of(remindersList, remindersLink);
     }
 
     // == endpoint that shows reminder by id number ==
     @GetMapping(path = "{id}")
-    public Reminders getReminder(@PathVariable("id") Long id) {
-        return this.remindersService.getReminder(id);
+    public ResponseEntity<Reminders> getReminder(@PathVariable("id") Long id) {
+
+        Reminders reminderById = this.remindersService.getReminder(id);
+        Link remindersLink = linkTo(RemindersController.class).withSelfRel();
+
+        Link link = linkTo(RemindersController.class).slash(id).withSelfRel();
+        reminderById.add(link).add(remindersLink);
+
+        return new ResponseEntity<>(reminderById, HttpStatus.OK);
     }
 
     // == endpoint that allows to add reminder using body of the request (json) ==
     @PostMapping
-    public void addReminder(@RequestBody Reminders reminders) {
+    public ResponseEntity<Void> addReminder(@RequestBody Reminders reminders) {
         remindersService.addNewReminder(reminders);
+        return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
     // == endpoint that deletes reminder by id number ==
     @DeleteMapping(path = "{id}")
-    public void deleteReminder(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteReminder(@PathVariable("id") Long id) {
         remindersService.deleteReminder(id);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     // == endpoint that makes reminder field 'done' true or false
     //    if reminder is being set to false - new deadline is required ==
     @PutMapping(path = "/done/{id}")
-    public void makeDoneOrUndone(@PathVariable("id") Long id,
-                                 @RequestParam("isdone") boolean isdone,
-                                 @RequestParam(value = "newdeadline", required = false) String newDeadline) {
+    public ResponseEntity<Void> makeDoneOrUndone(@PathVariable("id") Long id,
+                                                 @RequestParam("isdone") boolean isdone,
+                                                 @RequestParam(value = "newdeadline", required = false) String newDeadline) {
         remindersService.makeDoneOrUndone(id, isdone, newDeadline);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
-
 
     // == endpoint that updates reminder ==
     @PutMapping(path = "/update/{id}")
-    public void updateReminder(@PathVariable("id") Long id,
-                               @RequestBody Reminders reminderUpdateData) {
+    public ResponseEntity<Void> updateReminder(@PathVariable("id") Long id,
+                                               @RequestBody Reminders reminderUpdateData) {
         remindersService.updateReminder(id, reminderUpdateData);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
 
     @ExceptionHandler
     public ResponseEntity<ReminderErrorResponse> handleException(ReminderNotFoundException e) {
-        ReminderErrorResponse error = new ReminderErrorResponse();
-        error.setStatus(HttpStatus.NOT_FOUND.value());
-        error.setMessage(e.getMessage());
-        error.setTimeStamp(System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        reminderErrorResponse.setResponse
+                (HttpStatus.NOT_FOUND.value(), e.getMessage(), System.currentTimeMillis());
+        return new ResponseEntity<>(reminderErrorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler
     public ResponseEntity<ReminderErrorResponse> handleException(ReminderAlreadyExistsException e) {
-        ReminderErrorResponse error = new ReminderErrorResponse();
-        error.setStatus(HttpStatus.METHOD_NOT_ALLOWED.value());
-        error.setMessage(e.getMessage());
-        error.setTimeStamp(System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.METHOD_NOT_ALLOWED);
+        reminderErrorResponse.setResponse
+                (HttpStatus.METHOD_NOT_ALLOWED.value(), e.getMessage(), System.currentTimeMillis());
+        return new ResponseEntity<>(reminderErrorResponse, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler
     public ResponseEntity<ReminderErrorResponse> handleException(ReminderStatusException e) {
-        ReminderErrorResponse error = new ReminderErrorResponse();
-        error.setStatus(HttpStatus.METHOD_NOT_ALLOWED.value());
-        error.setMessage(e.getMessage());
-        error.setTimeStamp(System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.METHOD_NOT_ALLOWED);
+        reminderErrorResponse.setResponse
+                (HttpStatus.METHOD_NOT_ALLOWED.value(), e.getMessage(), System.currentTimeMillis());
+        return new ResponseEntity<>(reminderErrorResponse, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler
     public ResponseEntity<ReminderErrorResponse> handleException(ReminderDeadlineInPast e) {
-        ReminderErrorResponse error = new ReminderErrorResponse();
-        error.setStatus(HttpStatus.METHOD_NOT_ALLOWED.value());
-        error.setMessage(e.getMessage());
-        error.setTimeStamp(System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.METHOD_NOT_ALLOWED);
+        reminderErrorResponse.setResponse
+                (HttpStatus.METHOD_NOT_ALLOWED.value(), e.getMessage(), System.currentTimeMillis());
+        return new ResponseEntity<>(reminderErrorResponse, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler
     public ResponseEntity<ReminderErrorResponse> handleException(ReminderHasNotChanged e) {
-        ReminderErrorResponse error = new ReminderErrorResponse();
-        error.setStatus(HttpStatus.METHOD_NOT_ALLOWED.value());
-        error.setMessage(e.getMessage());
-        error.setTimeStamp(System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.METHOD_NOT_ALLOWED);
+        reminderErrorResponse.setResponse
+                (HttpStatus.METHOD_NOT_ALLOWED.value(), e.getMessage(), System.currentTimeMillis());
+        return new ResponseEntity<>(reminderErrorResponse, HttpStatus.METHOD_NOT_ALLOWED);
     }
 }

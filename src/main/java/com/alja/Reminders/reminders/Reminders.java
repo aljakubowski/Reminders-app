@@ -2,6 +2,7 @@ package com.alja.Reminders.reminders;
 
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.hateoas.RepresentationModel;
 
 import javax.persistence.*;
 import java.time.Duration;
@@ -11,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table
-public class Reminders {
+public class Reminders extends RepresentationModel<Reminders> {
 
     @Id
     @SequenceGenerator(name = "reminders_id_seq", sequenceName = "reminders_id_seq", allocationSize = 1)
