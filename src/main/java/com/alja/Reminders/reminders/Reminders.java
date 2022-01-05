@@ -7,7 +7,6 @@ import javax.persistence.*;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Data
 @Entity
@@ -41,18 +40,10 @@ public class Reminders {
         this.done = false;
     }
 
-
-
-    private String formatDate(LocalDateTime localDateTime) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        return LocalDateTime.now().format(formatter);
-    }
-
-    public String getCreated() {
-        return formatDate(this.created);
-    }
-
     public long getDaysLeft() {
+        if (this.deadline == null) {
+            return 0;
+        }
         return Duration.between(LocalDate.now().atStartOfDay(), deadline.atStartOfDay()).toDays();
     }
 }

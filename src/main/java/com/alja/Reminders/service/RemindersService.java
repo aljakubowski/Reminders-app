@@ -1,10 +1,13 @@
 package com.alja.Reminders.service;
 
+import com.alja.Reminders.exceptionHandlers.*;
 import com.alja.Reminders.reminders.Reminders;
 import com.alja.Reminders.repository.RemindersRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,57 +21,80 @@ public class RemindersService {
         this.remindersRepository = repository;
     }
 
-    public List<Reminders> getReminders(){
+    public void addNewReminder(Reminders reminders) {
+
+        Optional<Reminders> remindersOptional = remindersRepository.findReminderByTask(reminders.getTask());
+        if (remindersOptional.isPresent()) {
+            throw new ReminderAlreadyExistsException
+                    ("Reminder named: '" + reminders.getTask() + "' already exists. Same names are not allowed.");
+        }
+
+        if (reminders.getDaysLeft() < 0) {
+            throw new ReminderDeadlineInPast
+                    ("Deadline: " + reminders.getDeadline() + " is in the past. Cannot set new deadline");
+        }
+
+        this.remindersRepository.save(reminders);
+    }
+
+    public List<Reminders> getReminders() {
         return remindersRepository.findAll();
     }
 
-//    public Reminders getReminder(Long id){
-//        if (checkIfReminderExists(id)){
-//            return remindersRepository.getById(id);
-//        }
-//        return null;
-//    }
-
-    public Optional getReminder(Long id){
-        Optional<Reminders> remindersOptional = remindersRepository.findById(id);
-        if (remindersOptional.isEmpty()){
-            throw new IllegalStateException("task with id: '" + id + "' does exists");
-        }
-        return remindersOptional;
-    }
-
-//    public Optional getEmployee(Long id){
-//
-//        Optional<Employee> employeeOptional = employeeRepository.findById(id);
-//        if (employeeOptional.isEmpty()){
-//            throw new IllegalStateException("Employee with id: " + id + " is not present");
-//        }
-//        return employeeOptional;
-//
-//    }
-
-    public void addNewReminder(Reminders reminder) {
-        Optional<Reminders> remindersOptional = remindersRepository.findReminderByTask(reminder.getTask());
-        if (remindersOptional.isPresent()){
-            throw new IllegalStateException("task already exists");
-        }
-        this.remindersRepository.save(reminder);
+    public Reminders getReminder(Long id) {
+        return remindersRepository.findById(id)
+                .orElseThrow(() -> new ReminderNotFoundException("Reminder with id: '" + id + "' was not found."));
     }
 
     public void deleteReminder(Long id) {
-        if (checkIfReminderExists(id)){
-            this.remindersRepository.deleteById(id);
+
+        Reminders reminderToDelete = remindersRepository.findById(id)
+                .orElseThrow(() -> new ReminderNotFoundException
+                        ("Reminder with id: '" + id + "' was not found. Any reminder was deleted."));
+        remindersRepository.deleteById(reminderToDelete.getId());
+    }
+
+    @Transactional
+    public void makeDoneOrUndone(Long id, boolean isDone, String date) {
+
+        Reminders reminderToUpdate = remindersRepository.findById(id)
+                .orElseThrow(() -> new ReminderNotFoundException
+                        ("Reminder with id: '" + id + "' was not found. Any reminder has changed its status."));
+        if (isDone) {
+            if (reminderToUpdate.isDone()) {
+                throw new ReminderStatusException("The reminder has already status: 'done'");
+            }
+            reminderToUpdate.setDone(true);
+            reminderToUpdate.setDeadline(null);
+        } else {
+            if (!reminderToUpdate.isDone()) {
+                throw new ReminderStatusException("The reminder has already status: 'undone'");
+            }
+            reminderToUpdate.setDone(false);
+            reminderToUpdate.setDeadline(LocalDate.parse(date));
         }
     }
 
-    private boolean checkIfReminderExists(Long id){
-        if (!this.remindersRepository.existsById(id)) {
-            throw new IllegalStateException("Reminder with id: " + id + " does not exist");
+    @Transactional
+    public void updateReminder(Long id, Reminders reminderUpdateData) {
+
+        Reminders reminderToUpdate = remindersRepository.findById(id)
+                .orElseThrow(() -> new ReminderNotFoundException
+                        ("Reminder with id: '" + id + "' was not found. Any reminder has changed its status."));
+
+        if (reminderUpdateData.getDaysLeft() < 0) {
+            throw new ReminderDeadlineInPast
+                    ("New deadline: " + reminderUpdateData.getDeadline() + " is in the past. Cannot set deadline");
         }
-        return true;
-    }
 
-    public void updateReminder(Long id, Reminders reminder) {
+        if (reminderToUpdate.getTask().equals(reminderUpdateData.getTask())
+                && reminderToUpdate.getDetails().equals(reminderUpdateData.getDetails())
+                && reminderToUpdate.getDeadline().equals(reminderUpdateData.getDeadline())) {
+            throw new ReminderHasNotChanged("Any reminder data has changed.");
+        }
 
+        reminderToUpdate.setTask(reminderUpdateData.getTask());
+        reminderToUpdate.setDetails(reminderUpdateData.getDetails());
+        reminderToUpdate.setDeadline(reminderUpdateData.getDeadline());
     }
 }
