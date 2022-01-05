@@ -1,6 +1,7 @@
 # Reminders-app
 
 Server-side application that allows to store reminders in database
+and handles CRUD operation
 
 application endpoints:
 
