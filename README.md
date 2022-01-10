@@ -1,9 +1,9 @@
 # Reminders-app
 
-Server-side application that allows to store reminders in database
+Server-side application that allows to store reminders in relational database
 and handles CRUD operation
 
-application endpoints:
+REST API endpoints:
 
 - GET api/v1/reminders
   get list of all reminders
@@ -32,3 +32,15 @@ application endpoints:
   
 - PUT api/v1/reminders/done/{id}?isdone=false&newdeadline={newDeadline}
   mark as undone
+
+PostgreSQL database was used for this project.
+Table schema:
+
+CREATE TABLE reminders (
+	id BIGSERIAL NOT NULL PRIMARY KEY,
+	task VARCHAR(50) NOT NULL,
+	details VARCHAR(150) NOT NULL,
+	created TIMESTAMP(50),
+	deadline DATE,
+	done VARCHAR(5)
+);
