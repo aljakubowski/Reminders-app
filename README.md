@@ -3,7 +3,7 @@
 Server-side application that allows to store reminders(notes) in relational database
 and handles CRUD operation.
 Some operations available through HATEOAS
-Responses are sent through JSON.
+Data sent through HTTP requests are in JSON format.
 
 REST API endpoints:
 
