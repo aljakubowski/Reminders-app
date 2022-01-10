@@ -1,7 +1,9 @@
 # Reminders-app
 
-Server-side application that allows to store reminders in relational database
-and handles CRUD operation
+Server-side application that allows to store reminders(notes) in relational database
+and handles CRUD operation.
+Some operations available through HATEOAS
+Responses are sent through JSON.
 
 REST API endpoints:
 
